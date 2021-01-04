@@ -2,6 +2,7 @@
 #include <LCDWIKI_SPI.h> //Hardware-specific library
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7735.h>
+#include <Keypad.h>
 //LCDWIKI_SPI mylcd(ST7735S, A5, A3, -1, A2, A4, A1, A3); //software spi,model,cs,cd,miso,mosi,reset,clk,led
 
 //Adafruit_ST7735 mylcd = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
@@ -16,60 +17,89 @@ Adafruit_ST7735 mylcd = Adafruit_ST7735(10, 9, 11, 13, 8);
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 
-int ballx, bally, oldballx, oldbally, ballsize = 5, xdir = 1, ydir = 1;
-int reverse = 0;
+int ballx = 50, bally = 50, oldballx, oldbally;
+int ballsize = 5, xdir = 1, ydir = 1;
+int playerx = 54, playery = 154, oldplayerx, oldplayery, playerWidth = 26, playerHeight = 2;
+int rowNr = 6, colNr = 8;
 
-/*void draw_bitmap(void)
+typedef struct bricktype
 {
-  mylcd.Fill_Screen(BLACK);
-  for(int i = 0; i <= 120; i+=7)
-    for(int j = 0; j <= 50; j+=3)
-      mylcd.Draw_Bit_Map(i, j, 6, 2, (int)bitmap_array, 1);
-  delay(500);
-}*/
+  int x, y;
+  int width, height;
+  bool build;
+  bool active;
+} brick;
+
+brick brickMatrix[6][8] = {{1, 1, 1, 1, 1, 1, 1, 1,},
+  {1, 1, 1, 1, 1, 1, 1, 1,},
+  {1, 1, 1, 1, 1, 1, 1, 1,},
+  {1, 1, 1, 1, 1, 1, 1, 1,},
+  {1, 1, 1, 1, 1, 1, 1, 1,},
+  {1, 1, 1, 1, 1, 1, 1, 1,}
+};
+
+const byte ROWS = 4;
+const byte COLS = 4;
+
+char hexaKeys[ROWS][COLS] = {
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
+};
+
+byte rowPins[ROWS] = {30, 34, 38, 42};
+byte colPins[COLS] = {44, 48, 50, 52};
+
+Keypad kp = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
+char customKey;
 
 /*void draw_brick_matrix(void)
-{
+  {
   mylcd.Fill_Screen(BLACK);
   for(int i = 0; i <= 120; i+=7)
     for(int j = 0; j <= 50; j+=3)
       mylcd.Draw_Rectangle(i, j, i+5, j+1);
   delay(500);
-}*/
- 
-void move_ball_test(void)
+  }*/
+
+void printMenu()
 {
-  draw_ball();
-  while(1)
-  {
-    oldballx = ballx;
-    oldbally = bally;
-    check_wall_collision();
-    ballx+=xdir;
-    bally+=ydir;
-    delete_ball_optimized();
-    draw_ball();
-    delay(10);
-  }
+  
 }
 
-void draw_ball(void)
+void goToNextLevel()
+{
+  
+}
+
+void updateLives()
+{
+  
+}
+
+void printScore()
+{
+
+}
+
+void drawPlayer(void)
+{
+  mylcd.fillRect(playerx, playery, playerWidth, playerHeight, YELLOW);
+}
+
+void drawBall(void)
 {
   //mylcd.Set_Draw_color(100, 100, 100);
   mylcd.fillRect(ballx, bally, ballsize, ballsize, BLUE);
 }
 
-//void delete_ball(void)
-//{
-//  //mylcd.Fill_Rectangle(oldballx, oldbally, oldballx+3, oldbally+3);
-//  if(!reverse)
-//    mylcd.Draw_Line(ballx, bally, ballx, bally+ballsize);
-//  else
-//    mylcd.Draw_Line(ballx + ballsize, bally, ballx+ballsize, bally+ballsize);
-//}
-
-void delete_ball_optimized(void)
+void moveBall(void)
 {
+  oldballx = ballx;
+  oldbally = bally;
+  ballx += xdir;
+  bally += ydir;
   if (oldballx <= ballx && oldbally <= bally) {
     mylcd.fillRect(oldballx, oldbally, ballsize, bally - oldbally, BLACK);
     mylcd.fillRect(oldballx, oldbally, ballx - oldballx, ballsize, BLACK);
@@ -85,24 +115,98 @@ void delete_ball_optimized(void)
   }
 }
 
-void check_wall_collision(void)
+void checkWallCollision(void)
 {
-  if(ballx + ballsize >= mylcd.width())
+  if (ballx + ballsize >= mylcd.width())
     xdir = -xdir;
-  else if(bally <= 0)
+  else if (bally <= 0)
     ydir = -ydir;
-  else if(ballx <= 0)
+  else if (ballx <= 0)
     xdir = -xdir;
-  else if(bally + ballsize >= mylcd.height())
+  else if (bally + ballsize >= mylcd.height())
     ydir = -ydir;
 }
 
+void checkPlayerCollision(void)
+{
+  int collision = 0;
+  if (bally + ballsize == playery)
+    if (ballx >= playerx - ballsize && ballx <= playerx + playerWidth + ballsize)
+      collision = 1;
+  if (collision)
+  {
+    ydir = -ydir;
+  }
+}
+
+void checkGameOver(void)
+{
+  //customKey = kp.getKey();
+  if (customKey)
+    if (customKey == '#')
+    {
+      mylcd.fillScreen(BLACK);
+      exit(0);
+    }
+    else if(customKey == '8')
+      playerWidth = 30;
+}
+
+void movePlayer(void)
+{
+  oldplayerx = playerx;
+  oldplayery = playery;
+
+  customKey = kp.getKey();
+  if (customKey) {
+    if (customKey == '4')
+      playerx -= 10;
+    else if (customKey == '6')
+      playerx += 10;
+  }
+
+  if (playerx >= oldplayerx)
+    mylcd.fillRect(oldplayerx, oldplayery, playerx - oldplayerx, playerHeight, BLACK);
+  if (playerx <= oldplayerx)
+    mylcd.fillRect(playerx + playerWidth, playery, oldplayerx - playerx, playerHeight, BLACK);
+}
+
+void drawBricks()
+{
+  for (int i = 0; i < rowNr; i++)
+    for (int j = 0 ; j < colNr; j++)
+      if (brickMatrix[i][j].build == 1)
+        mylcd.fillRect(brickMatrix[i][j].x, brickMatrix[i][j].y, brickMatrix[i][j].width, brickMatrix[i][j].height, RED);
+}
+
+void setBricksCoords()
+{
+  for (int i = 0; i < rowNr; i++)
+    for (int j = 0; j < colNr; j++)
+    {
+      brickMatrix[i][j].x = 19*i+11;
+      brickMatrix[i][j].y = 8*j+30;
+      brickMatrix[i][j].width = 10;
+      brickMatrix[i][j].height = 3;
+      brickMatrix[i][j].build = 1;
+    }
+}
+
+void checkBrickCollision()
+{
+  for (int i = 0; i < rowNr; i++)
+    for (int j = 0; j < colNr; j++)
+      if(brickMatrix[i][j].active)
+      {
+        brickMatrix[i][j].active = 0;
+        mylcd.fillRect(brickMatrix[i][j].x, brickMatrix[i][j].y, brickMatrix[i][j].width, brickMatrix[i][j].height, BLACK);
+        
+      }
+}
+
 void setup() {
+
   Serial.begin(9600);
-
-  Serial.print(F("Hello! ST77xx TFT Test"));
-  // put your setup code here, to run once:
-
   //mylcd.Set_Draw_color(1111100000000000);
   //for(int i = 0; i < mylcd.Get_Display_Width(); i++)
   //for(int j = 0; j < mylcd.Get_Display_Height(); j++)
@@ -110,22 +214,26 @@ void setup() {
 
   //mylcd.Init_LCD();
   mylcd.initR(INITR_BLACKTAB);
+
   mylcd.fillScreen(BLACK);
 
-  ballx = bally = 50;
-  
+  drawBall();
+  drawPlayer();
+
+  setBricksCoords();
+  drawBricks();
+
   //draw_brick_matrix();
-  move_ball_test();
-
-
-
-  /*for (int i = 0; i < 625; i++)
-    bitmap_array[i] = 8;*/
   //rectangle_test();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  
-
+  drawPlayer();
+  drawBall();
+  movePlayer();
+  moveBall();
+  checkWallCollision();
+  checkPlayerCollision();
+  checkGameOver();
+  delay(5);
 }
